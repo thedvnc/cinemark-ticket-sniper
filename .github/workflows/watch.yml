@@ -21,7 +21,9 @@ permissions:
 jobs:
   sweep:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Cinemark can return multi-minute rate-limit backoffs; retain state when a
+    # throttled sweep needs more than the normal cadence window.
+    timeout-minutes: 60
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -39,12 +41,23 @@ jobs:
         run: python3 watch.py --once
 
       - name: Persist state
+        if: ${{ !inputs.test_alert }}
         run: |
           git config user.name "odyssey-watcher[bot]"
           git config user.email "actions@users.noreply.github.com"
-          git add state.json alerts.log 2>/dev/null || true
-          if ! git diff --cached --quiet; then
-            git commit -m "state: sweep $(date -u '+%Y-%m-%d %H:%M UTC')"
-            git pull --rebase --autostash origin main || true
-            git push
+
+          # State is required for detecting new openings. Stage it independently
+          # so an absent alerts.log does not prevent state.json from being saved.
+          git add state.json
+          if [ -f alerts.log ]; then
+            git add alerts.log
           fi
+
+          if git diff --cached --quiet; then
+            echo "No watcher state changes to persist."
+            exit 0
+          fi
+
+          git commit -m "state: sweep $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git pull --rebase --autostash origin main
+          git push
