@@ -32,7 +32,9 @@ party_size = 1
 request_gap_seconds = 8
 
 # Probe for newly added dates every Nth sweep (seat checks happen every sweep).
-date_scan_every = 3
+# Discovery is less time-sensitive than seat openings; reducing its frequency
+# leaves more execution headroom when Cinemark throttles requests.
+date_scan_every = 6
 
 # Loop mode only; on GitHub Actions the cadence comes from the workflow cron.
 poll_minutes = 5
